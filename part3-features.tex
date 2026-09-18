@@ -4,12 +4,10 @@
 \begin{document}
 \begin{notes}{Part 3: Features}
 
-\NoteChapter{Objects in Image Processing: Edges, Corners, and Blobs}
 
+\NoteChapter{Edges}
 
-\NoteSection{Edges}
-
-\NoteSubsection{What is an Edge?}
+\NoteSection{What is an Edge?}
 
 An \textbf{edge} is a location where intensity changes abruptly. Physically, edges arise from:
 \begin{itemize}
@@ -33,7 +31,7 @@ An \textbf{edge} is a location where intensity changes abruptly. Physically, edg
 \end{itemize}
 First-derivative operators (Sobel, Prewitt) detect step edges via large gradient magnitude. Second-derivative operators (Laplacian, LoG) detect edges via zero-crossings.
 
-\NoteSubsection{Derivative Models for Basic Edge Detection}
+\NoteSection{Derivative Models for Basic Edge Detection}
 
 \textbf{1D analysis.} For a continuous 1D signal $f(x)$, a step edge appears as:
 \begin{itemize}
@@ -69,7 +67,7 @@ Edge pixels are located at zero-crossings of $\nabla^2 f$. Because the Laplacian
 
 \textbf{Key trade-off.} First-order methods yield gradient direction and are easy to threshold, but produce thick edges requiring NMS. Second-order zero-crossings are precisely localised to single pixels but are noisier - hence the importance of LoG and the Canny pipeline.
 
-\NoteSubsection{Canny Edge Detector (1986)}
+\NoteSection{Canny Edge Detector (1986)}
 
 The Canny detector is the standard pipeline for thin, well-localised, noise-robust edges. It jointly optimises three criteria: \emph{good detection} (low miss/false-alarm rate), \emph{good localisation} (edges marked close to true boundary), and \emph{single response} (one edge pixel per true edge).\\
 
@@ -95,7 +93,7 @@ The Canny detector is the standard pipeline for thin, well-localised, noise-robu
 \end{figure}
 
 
-\NoteSubsection{Difference of Gaussians (DoG)}
+\NoteSection{Difference of Gaussians (DoG)}
 
 DoG approximates the LoG by subtracting two Gaussians at different scales:
 $$\mathrm{DoG}_{\sigma_1,\sigma_2}(x,y) = G_{\sigma_1}(x,y) - G_{\sigma_2}(x,y), \quad \sigma_1 < \sigma_2.$$
@@ -110,9 +108,9 @@ When $\sigma_2/\sigma_1\approx 1.6$, DoG closely approximates $(\sigma_2^2-\sigm
 
 \columnbreaknofill
 
-\NoteSection{Corners}
+\NoteChapter{Corners}
 
-\NoteSubsection{Corner Detection}
+\NoteSection{Corner Detection}
 
 A \textbf{corner} is a point with large intensity variation in \emph{multiple} directions simultaneously. Unlike edges (localised in only one direction), corners are well-localised in 2D and are repeatable under viewpoint and illumination changes.
 
@@ -137,7 +135,7 @@ $$E(\Delta x,\Delta y) = \sum_{(x,y)\in W}\bigl[f(x+\Delta x, y+\Delta y) - f(x,
 \end{figure}
 
 
-\NoteSubsection{Moravec Corner Detector (1980)}
+\NoteSection{Moravec Corner Detector (1980)}
 
 The earliest interest-point detector (Moravec, 1980). The core idea: a corner is where shifting a small window in \emph{any} direction causes a large intensity change.\\
 
@@ -170,7 +168,7 @@ The earliest interest-point detector (Moravec, 1980). The core idea: a corner is
 Harris addresses all four: the structure tensor $M$ integrates over \emph{all} directions via gradients, the Gaussian window downweights boundary pixels, the response $R$ is continuous, and $M$'s eigenvalues are rotation-invariant.
 
 
-\NoteSubsection{Harris Corner Detector (1988)}
+\NoteSection{Harris Corner Detector (1988)}
 
 Harris \& Stephens (1988) fix Moravec's limitations by replacing discrete shifts with a continuous gradient formulation.\\
 
@@ -205,20 +203,20 @@ Harris \& Stephens (1988) fix Moravec's limitations by replacing discrete shifts
 
 \textbf{Properties.} Rotation-invariant (eigenvalues are invariant to rotation of image coordinates). Not scale-invariant - the detected corners change as the image is rescaled.
 
-\NoteSubsection{Shi-Tomasi Corner Detector (1994)}
+\NoteSection{Shi-Tomasi Corner Detector (1994)}
 
 Shi and Tomasi replace the Harris response with
 $$R_{\mathrm{ST}} = \min(\lambda_1, \lambda_2).$$
 A pixel is a corner if $\min(\lambda_1,\lambda_2) > \tau$. Both eigenvalues must exceed the threshold, giving more uniformly distributed, stable corners. Used in OpenCV's \texttt{goodFeaturesToTrack}.
 
-\NoteSubsection{Noble Corner Detector (1998)}
+\NoteSection{Noble Corner Detector (1998)}
 
 Noble replace the Harris response with
 $$R_{\mathrm{ST}} = \frac{\det(M)}{\mathrm{trace}(M) + \epsilon}$$
 where $\epsilon$ is a small positive constant.
 
 
-\NoteSubsection{Förstner Corner Detector (1987)}
+\NoteSection{Förstner Corner Detector (1987)}
 
 Förstner \& Gülch (1987) predates Harris and takes a fundamentally different approach: rather than collapsing the structure tensor into a single scalar response, it estimates an \emph{optimal sub-pixel location} for each corner candidate and characterises the uncertainty of that location with an \emph{error ellipse}.\\
 
@@ -253,7 +251,7 @@ Its shape is an ellipse whose axes align with the eigenvectors of $M$ and whose 
 
 \textbf{Key distinction from Harris.} Harris fuses roundness and size into a single response $R = \det M - k(\mathrm{tr}\,M)^2$, which can pass the threshold via a large determinant even if the ellipse is elongated ($q$ small). Förstner's two-threshold scheme ($q$ and $w$ independently) avoids false-positives on strong edges, and the sub-pixel estimate $\hat{\mathbf{p}}$ gives localisation accuracy beyond the pixel grid.
 
-\NoteSubsection{The SUSAN Family (1997)}
+\NoteSection{The SUSAN Family (1997)}
 
 SUSAN (\textbf{S}mallest \textbf{U}nivalue \textbf{S}egment \textbf{A}ssimilating \textbf{N}ucleus) (Smith \& Brady, 1997) detects edges and corners without computing image derivatives, using only intensity comparisons within a circular mask.\\
 
@@ -291,7 +289,7 @@ $R>0$ only where the USAN is smaller than $g$, i.e.\ at edges and corners. Corne
 \end{itemize}
 
 
-\NoteSubsection{The FAST Corner Detector (2006)}
+\NoteSection{The FAST Corner Detector (2006)}
 
 Features from Accelerated Segment Test (Rosten \& Drummond, 2006). Designed for real-time applications where Harris/Shi--Tomasi are too slow. All decisions are intensity comparisons - no gradients, no matrix operations.\\
 
@@ -335,7 +333,9 @@ FAST      & 2006 & No  & No & Very fast \\
 \end{center}
 
 
-\NoteSection{Blobs}
+\columnbreaknofill
+
+\NoteChapter{Blobs}
 
 A \textbf{blob} is a connected image region whose intensity (or color) is approximately uniform and differs from its surroundings. Unlike edges (1D features) or corners (0D point features), blobs are 2D structures characterised by both \emph{position} and \emph{scale}. The central challenge is detecting blobs across a range of sizes without prior knowledge of which scale to look at.
 
@@ -345,7 +345,7 @@ A \textbf{blob} is a connected image region whose intensity (or color) is approx
     \includegraphics[width=0.6\linewidth]{images/part3/blobs-illustration.png}
 \end{figure}
 
-\NoteSubsection{Scale-Space and Characteristic Scale}
+\NoteSection{Scale-Space and Characteristic Scale}
 
 \textbf{Scale-space.} Convolving an image $f$ with a Gaussian of width $\sigma$ gives the linear scale-space:
 $$L(x,y;\sigma) = G_\sigma(x,y) * f(x,y).$$
@@ -364,7 +364,7 @@ so the blob radius can be read off as $r = \sigma^*\sqrt{2}$. Detecting blobs th
 
 
 
-\NoteSubsection{LoG Blob Detector}
+\NoteSection{LoG Blob Detector}
 
 \textbf{Algorithm.}
 \begin{enumerate}
@@ -376,7 +376,7 @@ so the blob radius can be read off as $r = \sigma^*\sqrt{2}$. Detecting blobs th
 
 The result is a set of circles $(x_i, y_i, r_i)$ - position and estimated radius - that are scale-covariant: if the image is rescaled by a factor $s$, the detected radii scale by the same $s$.
 
-\NoteSubsection{Difference of Gaussians (DoG) Blob Detector}
+\NoteSection{Difference of Gaussians (DoG) Blob Detector}
 
 DoG approximates the scale-normalised LoG and is the basis of SIFT blob detection.\\
 
@@ -395,7 +395,7 @@ The constant $(k-1)$ is irrelevant for locating extrema. With $k = 2^{1/s}$ ($s$
 \end{enumerate}
 Two Gaussian blurs and one subtraction replace one Laplacian convolution, at roughly the same cost; the pyramid additionally provides free multi-scale coverage.
 
-\NoteSubsection{Hessian-Based Blob Detection}
+\NoteSection{Hessian-Based Blob Detection}
 
 \textbf{The Hessian matrix} at scale $\sigma$ captures second-order intensity structure:
 $$\mathbf{H}(x,y;\sigma) = \sigma^2\begin{bmatrix} L_{xx} & L_{xy} \\ L_{xy} & L_{yy} \end{bmatrix},$$
@@ -409,7 +409,7 @@ where $L_{xx} = \partial^2 L/\partial x^2$, etc.\ (scale-normalised second deriv
 $$II(x,y) = \sum_{x'\le x,\,y'\le y} f(x',y').$$
 Any rectangular sum is computed in 4 table lookups. Box-filter approximations allow SURF to evaluate the Hessian determinant at any scale and position in constant time, making it significantly faster than LoG or DoG.
 
-\NoteSubsection{Maximally Stable Extremal Regions (MSER)}
+\NoteSection{Maximally Stable Extremal Regions (MSER)}
 
 MSER (Matas et al., 2004) detects blob-like regions without any Gaussian filtering, using only intensity thresholding.\\
 
@@ -427,6 +427,46 @@ is a local minimum over $t$. Stable regions are those that persist over a wide r
     \item Fails on textured or blurry boundaries where no stable threshold exists.
 \end{itemize}
 
+\NoteSection{Moment-Based Blob Detection}
+
+The scale-space detectors search for extrema of a filter response; the moment-based approach instead \emph{segments first} - by thresholding, background subtraction, or an MSER/connected-component sweep - and then characterises each candidate region by integrating over it. Moments turn a region into a handful of numbers describing its mass, position, spread, and orientation.\\
+
+\textbf{Raw moments.} For a region $\mathcal{R}$ with weight $f(x,y)$ (the binary mask, or the intensity itself for a grey-level blob):
+$$m_{pq} = \sum_{(x,y)\in\mathcal{R}} x^p\,y^q\,f(x,y).$$
+The zeroth moment $m_{00}$ is the area (or total mass), and the first moments give the centroid:
+$$(\bar x, \bar y) = \left(\frac{m_{10}}{m_{00}},\ \frac{m_{01}}{m_{00}}\right),$$
+which localises the blob to sub-pixel accuracy - unlike the integer-pixel extremum returned by LoG or DoG.\\
+
+\textbf{Central moments.} Subtracting the centroid makes the moments translation invariant:
+$$\mu_{pq} = \sum_{(x,y)\in\mathcal{R}} (x-\bar x)^p (y-\bar y)^q f(x,y).$$
+
+\textbf{Shape from second-order moments.} The normalised second-order central moments form the region's covariance matrix:
+$$\mathbf{C} = \frac{1}{\mu_{00}}\begin{bmatrix} \mu_{20} & \mu_{11} \\ \mu_{11} & \mu_{02} \end{bmatrix}.$$
+Its eigenvectors and eigenvalues $\lambda_1 \ge \lambda_2$ define the \emph{equivalent ellipse} - the uniform ellipse with the same second moments as the blob:
+\begin{itemize}
+    \item semi-axes $a = 2\sqrt{\lambda_1}$, $b = 2\sqrt{\lambda_2}$, so a disc of radius $r$ gives $\lambda_1=\lambda_2=r^2/4$ and the \emph{scale is read off directly} - $r = 2\sqrt{\lambda}$ - with no scale-space search;
+    \item orientation $\displaystyle \theta = \tfrac{1}{2}\arctan\frac{2\mu_{11}}{\mu_{20}-\mu_{02}}$, giving each blob a canonical frame for descriptor extraction;
+    \item eccentricity $e = \sqrt{1 - \lambda_2/\lambda_1}$, which measures how elongated the blob is. This ellipse fit is exactly the normalisation step used to make MSER regions affine covariant.
+\end{itemize}
+
+\textbf{Scale and rotation invariance.} Dividing out the area makes central moments scale invariant:
+$$\eta_{pq} = \frac{\mu_{pq}}{\mu_{00}^{\,(p+q)/2 + 1}},$$
+and particular combinations of the $\eta_{pq}$ are additionally rotation invariant - the \textbf{Hu moments} (Hu, 1962), of which the first two are
+$$\phi_1 = \eta_{20}+\eta_{02}, \qquad \phi_2 = (\eta_{20}-\eta_{02})^2 + 4\eta_{11}^2.$$
+The seven Hu invariants (the seventh also flips sign under reflection) serve as a compact shape descriptor for matching or classifying detected blobs.\\
+
+\textbf{Filtering candidates.} Segmentation over-produces regions, so moment-derived shape statistics are used to reject them. The standard criteria (as in OpenCV's \texttt{SimpleBlobDetector}) are area $\mu_{00}$, circularity $4\pi\mu_{00}/P^2$ for perimeter $P$, inertia ratio $\lambda_2/\lambda_1$, and convexity (region area over convex-hull area). A blob survives if all of them fall in their accepted range.\\
+
+\textbf{Trade-offs.} Moments are one $O(N)$ pass over the region and need no filter bank, and they yield sub-pixel position, orientation, and elongation for free - which is why they dominate in controlled settings (microscopy, industrial inspection, marker and centroid tracking). The weakness is the dependence on a prior segmentation: results are only as good as the threshold, and the method degrades on cluttered or low-contrast scenes where no single threshold isolates the blob. This is the inverse of the LoG/DoG trade-off, which needs no segmentation but must search scale explicitly.
+
+\NoteSection{Other Blob Detectors}
+
+\begin{itemize}
+    \item \textbf{Radial symmetry.} The fast radial symmetry transform (Loy and Zelinsky, 2003) has every gradient vote for the point a distance $n$ ahead of it; points accumulating many votes across several radii $n$ are radially symmetric blob centers. Gradient-driven rather than intensity-driven, so it survives uneven illumination - the standard choice for eyes, pupils, and circular fiducials.
+    \item \textbf{Watershed.} Treat $-f$ as a terrain and flood from local minima; catchment basins are blobs and the watershed lines their boundaries. Marker-controlled flooding (seeding only from chosen minima) is what keeps it from over-segmenting, and is the usual way to split touching blobs that thresholding merges into one region.
+    \item \textbf{Affine-covariant extensions.} Harris-affine and Hessian-affine (Mikolajczyk and Schmid, 2004) start from a scale-space detection, then iterate the second-moment matrix to normalise the patch to a circle. This makes the detection covariant to affine - not just similarity - transforms, at substantially higher cost.
+\end{itemize}
+
 \begin{center}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -436,6 +476,8 @@ LoG       & Scale-norm.\ Laplacian & Yes & Slow \\
 DoG (SIFT) & Gaussian subtraction & Yes & Moderate \\
 SURF      & Box-filter Hessian & Yes & Fast \\
 MSER      & Threshold sweep & Yes (affine) & Fast \\
+Moments   & Region integrals & Yes (from $\lambda$) & Fast \\
+Radial sym. & Gradient voting & Yes (radii set) & Moderate \\
 \bottomrule
 \end{tabular}
 \end{center}
