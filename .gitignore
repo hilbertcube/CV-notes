@@ -1,0 +1,11 @@
+# LaTeX build artifacts (latexmk writes these to build/ via .latexmkrc)
+build/
+
+# Stragglers if a build is ever run without latexmk
+*.aux
+*.log
+*.toc
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
