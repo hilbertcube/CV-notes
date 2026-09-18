@@ -4,9 +4,10 @@
 \begin{document}
 \begin{notes}{Part 2: Restoration and Transforms}
 
+
 \NoteChapter{Noise Models}
 
-Every measured image is a corrupted version of the scene. \textbf{Noise} is the random part of that corruption - the part that changes from one exposure to the next, or that is frozen into the sensor itself. Modelling it matters because every restoration filter in the next chapter is optimal only under an assumed noise model.
+Every measured image is a corrupted version of the scene. \textbf{Noise} is the random part of that corruption - the part that changes from one exposure to the next, or that is frozen into the sensor itself. Modelling it matters because every denoiser in the next chapter is optimal only under an assumed noise model, and choosing the wrong one is the usual reason a denoiser disappoints.
 
 \textbf{Observation models.} Three forms cover almost everything:
 $$\underbrace{g = f + \eta}_{\text{additive}},\qquad \underbrace{g = f\cdot\eta}_{\text{multiplicative}},\qquad \underbrace{g \sim \mathcal{P}(f)}_{\text{signal-dependent}}.$$
@@ -56,7 +57,7 @@ so \textbf{doubling the SNR requires four times the photons}. This is a statemen
 
 \textbf{Why not simply average it away?} Temporal noise does fall as $1/\sqrt N$ over $N$ frames, but averaging costs time: the scene or camera must hold still, or the gain in SNR is paid for in motion blur. And fixed-pattern noise, being identical in every frame, does not average down at all - averaging converges to the pattern rather than removing it.
 
-\textbf{Noise versus distortion.} Blur, vignetting and lens aberration are \emph{deterministic} degradations - identical every exposure, and therefore invertible in principle, which is the subject of the next chapter. Noise is random and irreversible: no filter recovers the value that was actually lost, it can only estimate it. This is precisely why deconvolution and denoising are treated as separate problems, and why the two are in tension - sharpening amplifies noise, and smoothing destroys detail.
+\textbf{Noise versus distortion.} Blur, vignetting and lens aberration are \emph{deterministic} degradations - identical every exposure, and therefore invertible in principle, which is the subject of the DEBLURRING chapter. Noise is random and irreversible: no filter recovers the value that was actually lost, it can only estimate it. This is precisely why deconvolution and denoising are treated as separate problems, and why the two are in tension - sharpening amplifies noise, and smoothing destroys detail.
 
 \NoteSection{The Imaging Chain: Where Noise Enters}
 
@@ -103,7 +104,7 @@ $$p(z) = \begin{cases}P_a, & z=0\ (\text{pepper}),\\ P_b, & z=L{-}1\ (\text{salt
 
 \textbf{Causes.} Dead or stuck pixels in the sensor array, bit errors in transmission or storage, and analogue-to-digital converter faults. Unlike the other models here it is not a perturbation of the true value - the original value is \emph{destroyed}.
 
-\textbf{Removal.} Best removed by \emph{median} (order-statistic) filters; linear averaging merely spreads the spike over the neighbourhood, replacing one bad pixel with nine mediocre ones. At high corruption densities ($>25\%$) a fixed-window median fails and an \emph{adaptive median} filter, which grows its window until it finds a valid median, is needed.
+\textbf{Consequences.} Because the corrupted values are \emph{outliers} rather than perturbations, no linear filter can help - averaging merely spreads the spike over the neighbourhood, replacing one bad pixel with nine mediocre ones. Impulse noise is the one case where order statistics beat every linear method outright (see DENOISING, order-statistic filters).
 
 \NoteSection{Rayleigh Noise}
 
@@ -112,12 +113,14 @@ $$p(z)=\tfrac{2(z-a)}{b}e^{-(z-a)^2/b},\;\;z\ge a;\quad \mu=a+\sqrt{\pi b/4},\;\
 
 \textbf{Where it comes from.} The Rayleigh distribution is the magnitude of a complex number whose real and imaginary parts are independent zero-mean Gaussians. Any imaging method that measures the \emph{envelope} of a complex signal therefore produces Rayleigh-distributed noise in dark regions - magnitude MRI, radar and sonar returns, and ultrasound envelopes. Its non-zero mean is why MRI background regions look grey rather than black.
 
+\textbf{Consequences.} Because the noise is the magnitude of a complex quantity, its effect is a signal-dependent \emph{bias} rather than signal-dependent variance - the general case is the Rician distribution, of which Rayleigh is the zero-signal limit. Removing the bias before denoising is what the treatment in DENOISING addresses.
+
 \NoteSection{Gamma (Erlang) Noise}
 
 Models laser speckle:
 $$p(z)=\frac{a^b z^{b-1}}{(b-1)!}e^{-az},\;\;z\ge 0;\quad \mu=b/a,\;\;\sigma^2=b/a^2.$$
 
-\textbf{Interpretation.} The sum of $b$ independent exponential variables. In coherent imaging this is exactly what \emph{multi-look} averaging does: averaging $b$ independent speckle realisations (looks) of the same scene turns exponential statistics into Gamma statistics with $b$ degrees of freedom, reducing relative variance by $1/b$ at the cost of spatial resolution. Standard practice in SAR.
+\textbf{Interpretation.} The sum of $b$ independent exponential variables. In coherent imaging the parameter $b$ counts \emph{looks}: averaging $b$ independent speckle realisations of the same scene turns exponential statistics into Gamma statistics with $b$ degrees of freedom. The exponent $b$ is therefore a direct measure of how much speckle has already been suppressed at acquisition time (see DENOISING, multi-look averaging).
 
 \NoteSection{Exponential Noise}
 
@@ -132,9 +135,7 @@ $$P(z=k)=\frac{e^{-\lambda}\lambda^k}{k!},\qquad \sigma^2 = \lambda,\qquad \math
 
 \textbf{Irreducible.} This is not a defect of the sensor - it is the quantum statistics of light itself. A perfect noiseless detector still measures Poisson-distributed counts. The only way to improve SNR is to collect more photons (longer exposure, wider aperture, larger pixels).
 
-\textbf{Practical handling.} At high flux Poisson$\to$Gaussian with $\sigma^2=\lambda$. Standard practice: apply the \emph{Anscombe transform}
-$$z\mapsto 2\sqrt{z+3/8}$$
-to variance-stabilise the signal (making the variance $\approx 1$ regardless of $\lambda$) before applying a Gaussian denoiser, then invert. The exact unbiased inverse matters at low counts.
+\textbf{Consequences.} At high flux Poisson$\to$Gaussian with $\sigma^2=\lambda$, so a Gaussian denoiser is adequate once the signal level is known. At low flux the variance changes from pixel to pixel with the signal itself, and the standard remedy is to stabilise it first (see DENOISING, variance stabilisation).
 
 \NoteSection{Speckle (Multiplicative) Noise}
 
@@ -143,9 +144,7 @@ $$g(x,y) = f(x,y)\cdot\eta(x,y),\qquad \mathrm{E}[\eta]=1.$$
 
 \textbf{Why it is not really ``noise''.} Speckle is deterministic given the exact scatterer positions - re-imaging the identical scene reproduces it. It is treated statistically only because the microstructure is unknowable.
 
-\textbf{Removal.} Taking logarithms converts it to additive noise,
-$$\log g = \log f + \log\eta,$$
-so an ordinary additive denoiser can be applied and the result exponentiated - this is \emph{homomorphic} filtering. Purpose-built alternatives that adapt to the local coefficient of variation (Lee, Frost, Kuan filters) preserve edges better.
+\textbf{Statistics.} For fully developed speckle the intensity is exponentially distributed, so $\sigma=\mu$ - a relative noise level of $100\%$ in single-look data, independent of how bright the scene is. Averaging independent looks is the only way to reduce it at acquisition; afterwards, the multiplicative structure must be converted to additive form before any standard denoiser applies (see DENOISING, variance stabilisation).
 
 \NoteSection{Bias (Offset) and Read Noise}
 
@@ -300,12 +299,168 @@ where $0.6745$ is the MAD of a unit Gaussian. The median makes it insensitive to
 $$L = \begin{bmatrix}1 & -2 & 1\\ -2 & 4 & -2\\ 1 & -2 & 1\end{bmatrix},\qquad \hat\sigma_\eta = \sqrt{\frac{\pi}{2}}\,\frac{1}{6(W-2)(H-2)}\sum_{x,y}\bigl|(g*L)(x,y)\bigr|.$$
 Fast, needs no patch selection, but biased upward on heavily textured images.
 
+\columnbreaknofill
+
+\NoteChapter{Denoising}
+
+Denoising estimates $f$ from a randomly corrupted $g$. It is a different problem from the deblurring of the next chapter, and the distinction is worth stating precisely: blur is a deterministic operator and is invertible in principle, whereas noise destroys information outright. No denoiser recovers the value that was actually measured away - it can only produce a plausible estimate, using a prior about what images look like to decide which of the many signals consistent with $g$ to return.
+
+\textbf{The common structure.} Every method in this chapter separates signal from noise by finding a representation in which the two behave differently, then suppressing whatever looks like noise there:
+\begin{itemize}
+    \item \textbf{A neighbourhood.} Pixels near each other usually share a value, while their noise is independent - so averaging a neighbourhood cancels noise and preserves signal. Everything hinges on choosing a neighbourhood that does not straddle an edge, which is what separates a mean filter from a bilateral or non-local one.
+    \item \textbf{A transform basis.} Natural images are \emph{sparse} in a wavelet or DCT basis - a few large coefficients - while white noise is spread evenly across all of them. Thresholding then removes noise almost exclusively.
+    \item \textbf{A frequency.} Periodic interference occupies a few isolated points of the spectrum and nothing else, so it can be excised exactly.
+\end{itemize}
+
+\textbf{Know the model first.} Each method is optimal only under an assumed noise model, which is why the previous chapter came first. Most of the machinery below assumes additive white Gaussian noise of known variance, so the chapter opens by reducing the other models to that case, and closes with a table matching noise type to method.
+
+\NoteSection{Variance Stabilisation and Signal-Dependent Noise}
+
+Poisson, speckle, Gamma and Rayleigh noise all break the AWGN assumption in the same way: the noise level is a function of the signal, so a single $\sigma_\eta$ does not exist. All four are handled by the same three-step strategy - \emph{stabilise, denoise, invert}:
+\begin{enumerate}
+    \item apply a pointwise transform $T$ chosen to make the variance constant;
+    \item denoise the transformed image with any AWGN method;
+    \item apply $T^{-1}$ to return to intensity units.
+\end{enumerate}
+
+\textbf{Choosing $T$.} If the noise standard deviation at signal level $\mu$ is $\sigma(\mu)$, then to first order a pointwise map $T$ propagates it as
+$$\mathrm{Var}\bigl[T(z)\bigr] \approx \bigl[T'(\mu)\bigr]^2\sigma^2(\mu),$$
+so the variance is constant precisely when $T'(\mu)\propto 1/\sigma(\mu)$, giving the \emph{variance-stabilising transform}
+$$T(z) = \int^z \frac{d\mu}{\sigma(\mu)}.$$
+The two classical transforms are just this integral evaluated for the two common cases.
+
+\textbf{Anscombe transform (Poisson).} Here $\sigma(\mu)=\sqrt\mu$, so $T(z)\propto\int \mu^{-1/2}d\mu = 2\sqrt{z}$. The standard form adds an offset that improves the approximation at low counts:
+$$z\;\longmapsto\;2\sqrt{z+3/8},$$
+after which the variance is $\approx 1$ regardless of $\lambda$. The naive inverse $(\,\cdot/2)^2-3/8$ is biased, and at low counts the \emph{exact unbiased inverse} matters more than the choice of denoiser - the bias is a systematic darkening of exactly the faint structure the denoiser was meant to preserve.
+
+\textbf{Homomorphic filtering (multiplicative).} For $g=f\cdot\eta$ the noise scales with the signal, $\sigma(\mu)=c\,\mu$, so $T(z)\propto\int\mu^{-1}d\mu=\log z$ - and indeed
+$$\log g = \log f + \log\eta$$
+is additive. Denoise the log-image and exponentiate. The catch is that $\mathrm{E}[\log\eta]\ne\log\mathrm{E}[\eta]=0$, so the exponentiated result is biased low by a constant factor that must be restored.
+
+\textbf{Multi-look averaging.} When the acquisition can supply several independent realisations - $b$ \emph{looks} of the same scene in SAR, or repeated frames - averaging them reduces the relative variance by $1/b$ and turns exponential statistics into Gamma statistics with $b$ degrees of freedom. This is the only speckle reduction that adds information rather than trading it away, but it costs spatial resolution (or acquisition time) proportionally.
+
+\textbf{Adaptive coefficient-of-variation filters.} The \textbf{Lee filter} avoids the log entirely, adapting directly to local statistics in the multiplicative model. With local mean $\bar g$ and variance $\sigma_L^2$ over a window, and $C_u$ the known coefficient of variation of the noise,
+$$\hat f = \bar g + W\,(g - \bar g),\qquad W = 1 - \frac{C_u^2}{C_g^2},\qquad C_g = \frac{\sigma_L}{\bar g}.$$
+In a homogeneous region $C_g\to C_u$, so $W\to0$ and the output is the local mean (full smoothing); across an edge $C_g\gg C_u$, so $W\to1$ and the pixel passes through untouched. This is the multiplicative analogue of the adaptive local noise-reduction filter below, with the coefficient of variation replacing the variance. \textbf{Frost} and \textbf{Kuan} are refinements using the same local-statistics principle.
+
+\textbf{Rayleigh and Rician (envelope) data.} Magnitude images from MRI, radar and ultrasound are the modulus of a complex measurement, so the problem is not heteroscedasticity but \emph{bias}: with underlying amplitude $A$ and per-channel noise $\sigma$,
+$$\mathrm{E}\bigl[M^2\bigr] = A^2 + 2\sigma^2,$$
+so the squared magnitude is inflated by a constant $2\sigma^2$ - which is why MRI background reads grey rather than black. Correcting to $\hat A = \sqrt{\max(M^2-2\sigma^2,\,0)}$ before applying an ordinary denoiser is the standard fix. Better still, denoise the complex data \emph{before} taking the magnitude, when it is available: the noise there is genuinely additive Gaussian and no correction is needed.
+
+\textbf{When not to stabilise.} At very low photon counts ($\lambda\lesssim1$) no pointwise transform makes the distribution acceptably Gaussian, and stabilise-then-denoise loses to methods that model the Poisson likelihood directly - Richardson--Lucy, or a variational objective with a Poisson data term.
+
+\NoteSection{Spatial Noise Reduction Filters}
+
+Given $g = f + \eta$, a spatial filter estimates $\hat{f}(x,y)$ from the $m\times n$ neighbourhood $S_{xy}$.
+
+\NoteSubsection{Mean Filters}
+
+\textbf{Arithmetic mean.} $\hat{f} = \frac{1}{mn}\sum_{S_{xy}}g(s,t)$. Blurs edges; optimal for Gaussian noise.
+
+\textbf{Geometric mean.} $\hat{f} = \bigl(\prod_{S_{xy}}g(s,t)\bigr)^{1/(mn)}$. Similar smoothing but loses less detail; fails if any pixel is zero.
+
+\textbf{Harmonic mean.} $\hat{f} = mn\!\Big/\!\sum_{S_{xy}}\frac{1}{g(s,t)}$. Handles Gaussian and \emph{salt} noise; fails for pepper noise.
+
+\textbf{Contraharmonic mean (order $Q$).}
+$$\hat{f} = \frac{\sum g^{Q+1}}{\sum g^{Q}}.$$
+$Q>0$: eliminates pepper noise. $Q<0$: eliminates salt noise. $Q=0$: arithmetic mean; $Q=-1$: harmonic mean.
+
+\NoteSubsection{Order-Statistic Filters}
+
+Rank the $mn$ neighbourhood values as $g_{(1)}\le\cdots\le g_{(mn)}$.
+
+\textbf{Median filter.} $\hat{f}=g_{(\lceil mn/2\rceil)}$. The standard cure for salt-and-pepper noise; preserves edges far better than any mean filter.
+
+\textbf{Max/Min filters.} $\hat{f}=g_{(mn)}$ (eliminates pepper); $\hat{f}=g_{(1)}$ (eliminates salt).
+
+\textbf{Midpoint filter.} $\hat{f}=\tfrac{1}{2}[g_{(1)}+g_{(mn)}]$. Best for uniform or Gaussian noise.
+
+\textbf{Alpha-trimmed mean.} Discard the $d/2$ lowest and $d/2$ highest values, average the rest ($mn-d$ values). $d=0$: arithmetic mean; $d=mn-1$: median. Effective for mixed Gaussian + impulse noise.
+
+\NoteSubsection{Adaptive Filters}
+
+\textbf{Adaptive local noise-reduction filter.} Uses local mean $\bar g$ and variance $\sigma_L^2$ in $S_{xy}$:
+$$\hat{f}(x,y) = g - \frac{\sigma_\eta^2}{\sigma_L^2}\bigl[g-\bar{g}\bigr].$$
+In flat regions ($\sigma_L^2\approx\sigma_\eta^2$): output $\approx\bar{g}$ (strong smoothing). Near edges ($\sigma_L^2\gg\sigma_\eta^2$): output $\approx g$ (no smoothing). The ratio is clamped to $[0,1]$.
+
+\textbf{Adaptive median filter.} Variable window: if the current median is itself an impulse, grow the window until a valid median is found (up to a maximum size). Handles varying impulse densities while preserving fine structure.
+
+\NoteSection{Edge-Preserving Denoisers}
+
+Standard mean/median filters smooth uniformly, blurring edges. Two important alternatives respect the image structure.
+
+\NoteSubsection{Bilateral Filter}
+
+The bilateral filter weights each neighbour by both \emph{spatial proximity} and \emph{intensity similarity}:
+$$\hat{f}(x,y) = \frac{1}{W_p}\!\sum_{(s,t)\in S}g(s,t)\;G_{\sigma_s}\!\bigl(\|(s,t)-(x,y)\|\bigr)\;G_{\sigma_r}\!\bigl(|g(s,t)-g(x,y)|\bigr),$$
+where $G_\sigma(\cdot)$ is a Gaussian kernel, $\sigma_s$ controls spatial spread, $\sigma_r$ controls intensity range (edge sensitivity), and $W_p$ normalises the weights. Pixels across an edge (large intensity gap) receive near-zero weight, so the edge is preserved while flat regions are smoothed. Cost: $O(k^2)$ per pixel for a $k\times k$ window; approximated efficiently via bilateral grids or $O(1)$ methods.
+
+\NoteSubsection{Non-Local Means (NLM)}
+
+The bilateral filter compares individual pixels. \textbf{NLM} compares full $p\times p$ \emph{patches}:
+$$\hat{f}(x,y) = \frac{1}{Z(x,y)}\!\sum_{(s,t)}\!g(s,t)\exp\!\left(-\frac{\|P_{(x,y)}-P_{(s,t)}\|^2}{h^2}\right),$$
+where $P_{(x,y)}$ is the patch centred at $(x,y)$, $h>0$ is a bandwidth parameter controlling denoising strength, and the sum runs over a large search window (or the whole image). Repeated textures anywhere in the image contribute to denoising at each pixel — unlike any local method. Stronger than bilateral for structured/textured images; naive cost $O(N^2 p^2)$, accelerated via PCA-compressed patches or approximate nearest-neighbour search.
+
+\NoteSection{Transform-Domain Denoising}
+
+The neighbourhood filters above exploit spatial redundancy. The transform-domain family exploits \emph{sparsity} instead: in a wavelet or DCT basis a natural image concentrates almost all its energy in a few large coefficients, whereas white noise - being white - spreads uniformly across every coefficient at level $\sigma_\eta$. Large coefficients are therefore signal and small ones are noise, and a threshold separates them.
+
+\textbf{Wavelet shrinkage.} The canonical instance: transform, shrink each coefficient towards zero, invert. Treated in full in the wavelet chapter, along with the choice of hard versus soft thresholding and the universal threshold $\tau=\sigma_\eta\sqrt{2\ln N}$; the noise level it needs is supplied by the MAD estimator of the previous chapter. Its weakness is the lack of shift invariance, which produces ringing near edges and motivates the undecimated variants.
+
+\textbf{BM3D.} The strongest classical denoiser, and effectively the union of the two families: group similar patches from across the image (as NLM does), stack them into a 3D array, and threshold in a transform applied \emph{along the stack} as well as within each patch. Because matched patches are nearly identical, the stack is extremely sparse in the third dimension, so collaborative thresholding removes far more noise than treating each patch alone. Still a common benchmark.
+
+\textbf{Learned denoisers.} CNN denoisers (DnCNN and successors) now exceed BM3D on Gaussian noise by training on (noisy, clean) pairs, typically predicting the noise residual rather than the image. The prior is learned from data rather than asserted as sparsity or self-similarity, which is both the strength and the limitation - performance degrades when the test noise model differs from the one trained on, so the variance-stabilising transforms above remain useful as a front end.
+
+\NoteSection{Periodic Noise and Frequency-Domain Filtering}
+
+Periodic noise appears as sharp spikes in the Fourier spectrum and is best attacked there.
+
+\textbf{Bandreject filter.} Attenuates an annular ring of radii $[D_0-W/2,\,D_0+W/2]$; removes periodic noise at frequency $D_0$ regardless of direction.
+
+\textbf{Bandpass filter.} Complement of bandreject ($H_{BP}=1-H_{BR}$); isolates the noise component for analysis.
+
+\textbf{Notch filter.} Attenuates conjugate pairs of points $(u_0,v_0)$ and $(-u_0,-v_0)$:
+$$H_{NF}(u,v) = \prod_k H_k(u,v)\,H_{-k}(u,v),$$
+where each $H_k$ is a small high-pass filter centred at $(u_{0k},v_{0k})$. More targeted than bandreject when noise spikes occur at specific frequencies \emph{and} directions. The corresponding notch-pass filter ($1-H_{NF}$) extracts the noise pattern for adaptive subtraction.
+
+\NoteSection{Choosing a Denoiser}
+
+The methods above are not interchangeable, and the dominant consideration is which noise model holds. Mismatching them is the usual cause of a disappointing result - a mean filter applied to impulse noise, or a Gaussian denoiser applied to raw photon counts.
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Noise & Method \\
+\midrule
+Gaussian        & BM3D / NLM; bilateral if fast \\
+Impulse         & Median; adaptive median \\
+Salt only       & Harmonic; contraharmonic $Q{<}0$ \\
+Pepper only     & Contraharmonic $Q{>}0$ \\
+Gaussian + imp. & Alpha-trimmed mean \\
+Uniform         & Midpoint; arithmetic mean \\
+Poisson         & Anscombe, then AWGN denoiser \\
+Speckle, Gamma  & Homomorphic; Lee/Frost/Kuan \\
+Rayleigh/Rician & Bias-correct, then AWGN \\
+Periodic        & Notch; bandreject \\
+\midrule
+DSNU / PRNU     & Dark frame; flat field \\
+Row / column    & Optical-black subtraction \\
+Hot pixels      & Defect map $+$ interpolation \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Caveats behind the table.} A mean filter is never right for impulse noise, whatever its window. Multi-look averaging beats any speckle filter when the looks are available, because it adds information rather than trading resolution for it. Below $\lambda\approx1$ photon, Richardson--Lucy beats Anscombe-plus-denoiser. And the min and max filters are worth reaching for only when salt or pepper is sparse; at any real density the median dominates them.
+
+\textbf{The line in the table matters.} Everything above it is genuinely random and can only be estimated away, losing some detail in the process. Everything below it is \emph{deterministic} - fixed pattern, frozen into the sensor - and is removed exactly by the calibration of the previous chapter. Filtering fixed-pattern noise as though it were random is strictly worse than calibrating it: it costs resolution and does not fully remove the pattern, because a spatially structured artefact does not look like noise to any of the estimators above.
 
 \columnbreaknofill
 
-\NoteChapter{Image Restoration and Reconstruction}
+\NoteChapter{Deblurring and Deconvolution}
 
-\NoteSection{Deconvolution and Regularization}
+Where denoising fights randomness, deblurring inverts a \emph{deterministic} degradation - and is therefore solvable in principle and merely ill-conditioned in practice. The two problems are in direct tension: sharpening amplifies noise and smoothing destroys detail, so every method in this chapter is really a rule for deciding how much noise amplification to accept in exchange for how much resolution.
+
+\NoteSection{The Degradation Model}
 
 \textbf{Why are our images blurry?} Could be a number of reasons, such as: Lens imperfections, Camera shake, Scene motion, Depth defocus, or Intentional Blurring (Bokeh and Aesthetic Effects)\\
 
@@ -405,6 +560,17 @@ where $P(u,v)$ is the frequency response of the Laplacian operator. Structurally
 
 \textbf{Total Variation (TV) regularisation.} $\mathcal{R}(f) = \|\nabla f\|_1$ promotes piecewise-constant solutions: smooth regions separated by sharp edges. Has no closed form but is solved iteratively. Preferred for images with strong edges (text, medical scans).
 
+\NoteSection{Richardson--Lucy Deconvolution}
+
+The filters above are all linear and all assume additive Gaussian noise. \textbf{Richardson--Lucy (RL)} instead maximises the \emph{Poisson} likelihood, which is the correct model for photon-limited data - and is why it dominates in astronomy and microscopy, where the blur is known from the optics but the counts are low. It requires a known PSF; it is not a blind method. Starting from $\hat{f}^{(0)}=g$, each iteration applies a multiplicative update:
+$$\hat{f}^{(k+1)}(x,y) = \hat{f}^{(k)}(x,y)\cdot\left[h(-x,-y)*\frac{g(x,y)}{(h*\hat{f}^{(k)})(x,y)}\right].$$
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item Positivity is preserved by construction (all factors non-negative), unlike the frequency-domain filters, which happily return negative intensities.
+    \item The ratio $g/(h*\hat f)$ is a per-pixel correction factor: it exceeds 1 where the current estimate under-predicts the observation, and the update is a fixed point when they agree.
+    \item Converges to the maximum-likelihood Poisson estimate, but amplifies noise with increasing iterations; typically stopped early or regularised with a TV/sparsity penalty.
+    \item Standard in astronomy (e.g.\ Hubble Space Telescope deblurring) and fluorescence microscopy.
+\end{itemize}
+
 \NoteSection{Blind Deconvolution}
 
 When the PSF $h$ is unknown, both $f$ and $h$ must be estimated jointly from $g$ - an ill-posed problem with infinitely many solutions. Approaches include:
@@ -414,86 +580,36 @@ When the PSF $h$ is unknown, both $f$ and $h$ must be estimated jointly from $g$
     \item \textit{Deep learning}: train a CNN end-to-end on (blurred, sharp) image pairs; the network implicitly learns both deblurring and PSF estimation without explicit modelling.
 \end{itemize}
 
-\NoteSubsection{Richardson--Lucy Algorithm}
+\NoteSection{Choosing a Deconvolution Method}
 
-The \textbf{Richardson--Lucy (RL)} algorithm is a maximum-likelihood iterative deconvolution assuming Poisson noise. Starting from $\hat{f}^{(0)}=g$, each iteration applies a multiplicative update:
-$$\hat{f}^{(k+1)}(x,y) = \hat{f}^{(k)}(x,y)\cdot\left[h(-x,-y)*\frac{g(x,y)}{(h*\hat{f}^{(k)})(x,y)}\right].$$
-\begin{itemize}[noitemsep,topsep=2pt]
-    \item Positivity is preserved by construction (all factors non-negative).
-    \item Converges to the maximum-likelihood Poisson estimate.
-    \item Amplifies noise with increasing iterations; typically stopped early or regularised with a TV/sparsity penalty.
-    \item Standard in astronomy (e.g.\ Hubble Space Telescope deblurring) and fluorescence microscopy.
-\end{itemize}
+Every method above is the same estimator with a different regulariser, and the choice is driven by two questions: is the PSF known, and what is actually known about the noise.
 
-\NoteSection{Spatial Noise Reduction Filters}
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+Method & Requires & Noise \\
+\midrule
+Inverse        & $H$ only          & none \\
+Truncated inv. & $H$, $\epsilon$   & negligible \\
+Wiener         & $H$, $K$          & Gaussian \\
+CLS            & $H$, $\|\eta\|^2$ & Gaussian \\
+Param.\ Wiener & $H$, $\alpha$     & Gaussian \\
+Tikhonov       & $H$, $\lambda$    & Gaussian \\
+TV             & $H$, $\lambda$    & Gaussian \\
+Richardson--Lucy & $H$, iterations & Poisson \\
+Blind (MAP)    & neither           & Gaussian \\
+Learned (CNN)  & training pairs    & implicit \\
+\bottomrule
+\end{tabular}
+\end{center}
 
-Given $g = f + \eta$, a spatial filter estimates $\hat{f}(x,y)$ from the $m\times n$ neighbourhood $S_{xy}$.
+\textbf{In practice.} If the PSF is known and the noise is Gaussian, Wiener is the default and CLS is its equivalent when the noise \emph{energy} rather than the SNR is what you can measure. Reach past both only for a reason: TV when the image is genuinely piecewise constant, and Richardson--Lucy when the counts are low enough that the Poisson model matters. If the PSF is unknown, estimate it first if any of the three strategies of the earlier section apply - a measured or modelled PSF plus Wiener beats blind deconvolution almost always, because blind methods must spend their regularisation budget on $h$ as well as $f$.
 
-\NoteSubsection{Mean Filters}
-
-\textbf{Arithmetic mean.} $\hat{f} = \frac{1}{mn}\sum_{S_{xy}}g(s,t)$. Blurs edges; optimal for Gaussian noise.
-
-\textbf{Geometric mean.} $\hat{f} = \bigl(\prod_{S_{xy}}g(s,t)\bigr)^{1/(mn)}$. Similar smoothing but loses less detail; fails if any pixel is zero.
-
-\textbf{Harmonic mean.} $\hat{f} = mn\!\Big/\!\sum_{S_{xy}}\frac{1}{g(s,t)}$. Handles Gaussian and \emph{salt} noise; fails for pepper noise.
-
-\textbf{Contraharmonic mean (order $Q$).}
-$$\hat{f} = \frac{\sum g^{Q+1}}{\sum g^{Q}}.$$
-$Q>0$: eliminates pepper noise. $Q<0$: eliminates salt noise. $Q=0$: arithmetic mean; $Q=-1$: harmonic mean.
-
-\NoteSubsection{Order-Statistic Filters}
-
-Rank the $mn$ neighbourhood values as $g_{(1)}\le\cdots\le g_{(mn)}$.
-
-\textbf{Median filter.} $\hat{f}=g_{(\lceil mn/2\rceil)}$. The standard cure for salt-and-pepper noise; preserves edges far better than any mean filter.
-
-\textbf{Max/Min filters.} $\hat{f}=g_{(mn)}$ (eliminates pepper); $\hat{f}=g_{(1)}$ (eliminates salt).
-
-\textbf{Midpoint filter.} $\hat{f}=\tfrac{1}{2}[g_{(1)}+g_{(mn)}]$. Best for uniform or Gaussian noise.
-
-\textbf{Alpha-trimmed mean.} Discard the $d/2$ lowest and $d/2$ highest values, average the rest ($mn-d$ values). $d=0$: arithmetic mean; $d=mn-1$: median. Effective for mixed Gaussian + impulse noise.
-
-\NoteSubsection{Adaptive Filters}
-
-\textbf{Adaptive local noise-reduction filter.} Uses local mean $\bar g$ and variance $\sigma_L^2$ in $S_{xy}$:
-$$\hat{f}(x,y) = g - \frac{\sigma_\eta^2}{\sigma_L^2}\bigl[g-\bar{g}\bigr].$$
-In flat regions ($\sigma_L^2\approx\sigma_\eta^2$): output $\approx\bar{g}$ (strong smoothing). Near edges ($\sigma_L^2\gg\sigma_\eta^2$): output $\approx g$ (no smoothing). The ratio is clamped to $[0,1]$.
-
-\textbf{Adaptive median filter.} Variable window: if the current median is itself an impulse, grow the window until a valid median is found (up to a maximum size). Handles varying impulse densities while preserving fine structure.
-
-\NoteSection{Edge-Preserving Denoisers}
-
-Standard mean/median filters smooth uniformly, blurring edges. Two important alternatives respect the image structure.
-
-\NoteSubsection{Bilateral Filter}
-
-The bilateral filter weights each neighbour by both \emph{spatial proximity} and \emph{intensity similarity}:
-$$\hat{f}(x,y) = \frac{1}{W_p}\!\sum_{(s,t)\in S}g(s,t)\;G_{\sigma_s}\!\bigl(\|(s,t)-(x,y)\|\bigr)\;G_{\sigma_r}\!\bigl(|g(s,t)-g(x,y)|\bigr),$$
-where $G_\sigma(\cdot)$ is a Gaussian kernel, $\sigma_s$ controls spatial spread, $\sigma_r$ controls intensity range (edge sensitivity), and $W_p$ normalises the weights. Pixels across an edge (large intensity gap) receive near-zero weight, so the edge is preserved while flat regions are smoothed. Cost: $O(k^2)$ per pixel for a $k\times k$ window; approximated efficiently via bilateral grids or $O(1)$ methods.
-
-\NoteSubsection{Non-Local Means (NLM)}
-
-The bilateral filter compares individual pixels. \textbf{NLM} compares full $p\times p$ \emph{patches}:
-$$\hat{f}(x,y) = \frac{1}{Z(x,y)}\!\sum_{(s,t)}\!g(s,t)\exp\!\left(-\frac{\|P_{(x,y)}-P_{(s,t)}\|^2}{h^2}\right),$$
-where $P_{(x,y)}$ is the patch centred at $(x,y)$, $h>0$ is a bandwidth parameter controlling denoising strength, and the sum runs over a large search window (or the whole image). Repeated textures anywhere in the image contribute to denoising at each pixel — unlike any local method. Stronger than bilateral for structured/textured images; naive cost $O(N^2 p^2)$, accelerated via PCA-compressed patches or approximate nearest-neighbour search.
-
-
-\NoteSection{Periodic Noise and Frequency-Domain Filtering}
-
-Periodic noise appears as sharp spikes in the Fourier spectrum and is best attacked there.
-
-\textbf{Bandreject filter.} Attenuates an annular ring of radii $[D_0-W/2,\,D_0+W/2]$; removes periodic noise at frequency $D_0$ regardless of direction.
-
-\textbf{Bandpass filter.} Complement of bandreject ($H_{BP}=1-H_{BR}$); isolates the noise component for analysis.
-
-\textbf{Notch filter.} Attenuates conjugate pairs of points $(u_0,v_0)$ and $(-u_0,-v_0)$:
-$$H_{NF}(u,v) = \prod_k H_k(u,v)\,H_{-k}(u,v),$$
-where each $H_k$ is a small high-pass filter centred at $(u_{0k},v_{0k})$. More targeted than bandreject when noise spikes occur at specific frequencies \emph{and} directions. The corresponding notch-pass filter ($1-H_{NF}$) extracts the noise pattern for adaptive subtraction.
-
+\textbf{The ringing floor.} All of these amplify noise where $|H|$ is small, and all produce ringing near strong edges - a consequence of truncating or reweighting frequencies that the true image needed. The regulariser chooses how the error is distributed, not whether it exists: $\gamma$ or $\lambda$ trade ringing against residual blur, and no setting removes both. This is the deblurring counterpart of the detail-versus-smoothing trade-off in denoising, and it is why the two are never applied blindly in sequence - deblurring a denoised image amplifies whatever the denoiser left behind.
 
 \NoteSection{Image Quality and Restoration Metrics}
 
-Quantifying how well $\hat{f}$ approximates the true $f$ requires objective distortion measures.
+Denoising and deblurring both return an estimate $\hat f$, and both trade one artefact against another - so neither can be tuned without an objective measure of how close $\hat f$ is to $f$.
 
 \textbf{Mean Squared Error (MSE).}
 $$\mathrm{MSE} = \frac{1}{MN}\sum_{x,y}\bigl[f(x,y)-\hat{f}(x,y)\bigr]^2.$$
@@ -509,23 +625,25 @@ where $c_1=(k_1 L)^2$, $c_2=(k_2 L)^2$ are small stability constants ($k_1{=}0.0
 
 \textbf{No-reference metrics.} BRISQUE and NIQE estimate quality from statistical regularities of natural images without a reference; LPIPS uses deep features. Useful when ground truth is unavailable (blind deconvolution, enhancement).
 
-\NoteSection{Image Reconstruction from Projections}
+\columnbreaknofill
 
-In CT, PET, and MRI we cannot observe $f(x,y)$ directly; instead we measure \textbf{line integrals} (projections) at many angles.
+\NoteChapter{Reconstruction from Projections}
 
-\NoteSubsection{Radon Transform}
+In CT, PET, SPECT and MRI the detector never sees $f(x,y)$. It measures \emph{line integrals} through the object - or, for MRI, samples of its spectrum - and the image must be recovered from that indirect evidence. This is a reconstruction problem rather than a restoration one: there is no degraded image to repair, only a measurement geometry to invert. Noise re-enters as the reason the inversion cannot be done naively, exactly as it did for deconvolution.
+
+\NoteSection{Radon Transform}
 
 The \textbf{Radon transform} of $f$ at angle $\theta$ integrates along lines perpendicular to angle $\theta$:
 $$g(\rho,\theta) = \int_{-\infty}^{\infty} f(\rho\cos\theta - s\sin\theta,\;\rho\sin\theta + s\cos\theta)\,ds,$$
 where $\rho$ is the signed perpendicular distance from the origin to the line. Collecting $g(\rho,\theta)$ for all $\theta\in[0°,180°)$ forms the \textbf{sinogram} — a 2D image in $(\rho,\theta)$ space; each row is one projection. A point source traces a sinusoid in the sinogram (hence the name).
 
-\NoteSubsection{Fourier Slice Theorem}
+\NoteSection{Fourier Slice Theorem}
 
 \textit{The 1D Fourier transform of projection $g(\rho,\theta)$ equals a radial slice of the 2D spectrum $F(u,v)$ at the same angle $\theta$:}
 $$G(\omega,\theta) = F(\omega\cos\theta,\;\omega\sin\theta).$$
 Taking projections at many angles fills $F(u,v)$ on radial lines. Full reconstruction requires densely sampling all angles (Nyquist in polar coordinates). This theorem underpins both FBP and $k$-space MRI reconstruction.
 
-\NoteSubsection{Backprojection and Filtered Backprojection (FBP)}
+\NoteSection{Backprojection and Filtered Backprojection (FBP)}
 
 \textbf{Simple backprojection.} ``Smear'' each projection back along its original direction and accumulate:
 $$\hat{f}_{BP}(x,y) = \int_0^\pi g(x\cos\theta+y\sin\theta,\,\theta)\,d\theta.$$
@@ -542,7 +660,7 @@ The ramp filter $|\omega|$ compensates for polar over-sampling near DC. Because 
 
 \textbf{Algebraic Reconstruction Technique (ART).} Iterative alternative: model the sinogram as $\mathbf{g}=R\mathbf{f}$ ($R$ = discrete Radon matrix) and solve via Kaczmarz/CGLS iterations. Handles limited-angle and sparse-view data better than FBP at the cost of higher computation.
 
-\NoteSubsection{Fan-Beam and Cone-Beam CT}
+\NoteSection{Fan-Beam and Cone-Beam CT}
 
 Clinical CT scanners emit a \textbf{diverging fan} (2D) or \textbf{cone} (3D) of X-rays rather than a parallel beam.
 
@@ -554,6 +672,31 @@ Clinical CT scanners emit a \textbf{diverging fan} (2D) or \textbf{cone} (3D) of
 $$\hat{f}_j^{(k+1)} = \frac{\hat{f}_j^{(k)}}{\sum_i R_{ij}}\sum_i R_{ij}\frac{g_i}{(R\hat{\mathbf{f}}^{(k)})_i}.$$
 OSEM (Ordered Subsets EM) partitions projections into subsets for $\sim10\times$ faster convergence. Dominant in PET and SPECT; outperforms FBP at low counts (high noise).
 
+
+\NoteSection{MRI and $k$-Space}
+
+MRI measures no line integrals at all, yet lands in this chapter because the Fourier slice theorem makes it the same problem. The scanner acquires samples of $F(u,v)$ directly - the raw data \emph{is} the spectrum, called \textbf{$k$-space} - and reconstruction is in principle a single inverse FFT.
+
+\textbf{Consequences of sampling $F$ directly.} Because each sample contributes to every pixel, the failure modes are global rather than local:
+\begin{itemize}[noitemsep,topsep=2pt]
+    \item The centre of $k$-space carries contrast and gross structure; the periphery carries edges. Truncating the periphery blurs and rings (Gibbs), and it is the acquisition time that is being truncated.
+    \item Under-sampling below Nyquist folds the object onto itself - aliasing that appears as a coherent ghost, not as noise.
+    \item Noise added in $k$-space is white, so the inverse FFT spreads it uniformly over the image. Unlike CT, there is no ramp filter to colour it.
+\end{itemize}
+
+\textbf{Parallel imaging.} Multiple receiver coils each see the object weighted by their own spatial sensitivity, which supplies the information missing from an under-sampled acquisition. SENSE unfolds the aliasing in the image domain by inverting the coil-sensitivity system per pixel; GRAPPA fills the missing $k$-space lines by fitting a linear kernel to fully sampled calibration lines. Both buy acquisition time at a cost in SNR that grows with the acceleration factor.
+
+\NoteSection{Noise, Dose, and Sparse Sampling}
+
+Reconstruction is where the noise of the first chapter becomes a clinical constraint rather than an aesthetic one, because in CT and PET the only way to collect more photons is to irradiate the patient more.
+
+\textbf{Why the ramp filter is the problem.} FBP is exact for noiseless data, but $|\omega|$ weights high frequencies - exactly where photon-starved projections are noisiest - so the reconstruction amplifies noise by construction. Windowing the ramp (Hann, Shepp--Logan) trades resolution for noise, which is the same bargain the regularisers of the previous chapter make, now paid in diagnostic detail.
+
+\textbf{Noise in the sinogram is not noise in the image.} A single noisy detector reading is backprojected along a whole line, so a local measurement error becomes a streak across the reconstruction. This is why photon-starved regions (behind metal implants or dense bone) produce streak artefacts rather than local grain, and why statistical methods that model the Poisson counts \emph{in the projection domain} - MLEM, OSEM, and model-based iterative reconstruction - outperform FBP at low dose.
+
+\textbf{Sparse-view and limited-angle.} Fewer projections means fewer radial lines filling $F(u,v)$, leaving wedges or gaps that FBP renders as streaks. The modern remedy is to stop treating reconstruction as inversion and treat it as the regularised problem of the previous chapter,
+$$\hat f = \arg\min_f \|g - Rf\|^2 + \lambda\,\mathcal{R}(f),$$
+with $R$ the discrete Radon (or Fourier-sampling) operator. \emph{Total variation} is the standard choice, for the same reason as in deblurring: medical images are close to piecewise constant, so TV suppresses streaks while preserving boundaries. This is \textbf{compressed sensing} - recovery below the Nyquist rate, valid when the image is sparse in some basis and the sampling pattern is incoherent with it, which is why under-sampled MRI uses randomised rather than uniform $k$-space trajectories.
 
 \columnbreaknofill
 
@@ -915,6 +1058,8 @@ The LL sub-band (size $M/2 \times N/2$) is recursively decomposed for $J$ levels
 \textbf{Energy compaction.} For a typical photograph, $\sim$90\% of the energy is in the LL sub-band after 1 level; after 3 levels the LL holds $\sim$99\%. Detail coefficients outside edges are near zero — this sparsity drives compression.
 
 \NoteSection{Wavelet Denoising (Shrinkage)}
+
+The transform-domain denoiser promised in DENOISING, now that the machinery it needs is in place.
 
 \textbf{Algorithm} (Donoho \& Johnstone, 1994):
 \begin{enumerate}
