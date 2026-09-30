@@ -1,0 +1,489 @@
+Yes. This is basically the entire image formation pipeline, from photons to the RGB pixels you see on your monitor.
+
+I'll use a digital camera as the example.
+
+1. Light exists as photons
+
+A scene is illuminated by some light source, such as the Sun or a lamp.
+
+Objects reflect, absorb, and scatter that light. Some of the reflected photons travel toward the camera.
+
+Sun / lamp
+    ↓
+  photons
+    ↓
+   object
+    ↓ reflected photons
+    ↓
+  camera
+
+The important thing is that different parts of the scene send different amounts and wavelengths of light toward the camera.
+
+For example:
+
+A white object reflects lots of visible light.
+A black object reflects relatively little.
+A red object reflects more red wavelengths than blue/green wavelengths.
+2. The camera lens collects and focuses the photons
+
+The photons enter the camera's lens.
+
+The lens bends the incoming rays so that photons coming from a particular 3D point in the world are focused onto a particular location on the image sensor.
+
+Conceptually:
+
+       object
+          *
+         / \
+        /   \
+       /     \
+      /       \
+   [    LENS    ]
+         \   /
+          \ /
+       SENSOR
+
+This is why the camera can convert a 3D scene into a 2D image.
+
+The pinhole camera model from your UCLA notes simplifies this process by treating the aperture as a single point.
+
+3. Photons hit the image sensor
+
+Behind the lens is a silicon image sensor, typically a CMOS sensor in modern cameras.
+
+The sensor contains millions of tiny photosensitive elements called pixels/photosites.
+
+For example:
+
+┌───┬───┬───┬───┐
+│   │   │   │   │
+├───┼───┼───┼───┤
+│   │   │   │   │
+├───┼───┼───┼───┤
+│   │   │   │   │
+└───┴───┴───┴───┘
+
+Each photosite receives photons.
+
+More photons generally produce a larger electrical signal.
+
+So, roughly:
+
+$$ \boxed{\text{more photons} \rightarrow \text{more electrons} \rightarrow \text{larger signal}} $$
+
+This is where the physical world starts becoming an electrical measurement.
+
+4. Photons generate electrons
+
+This is the physics part.
+
+When photons hit the semiconductor, they can transfer their energy to electrons through the photoelectric effect.
+
+The sensor accumulates charge.
+
+Imagine two pixels:
+
+Dark region              Bright region
+
+   few photons              many photons
+       ↓                        ↓
+   ○ ○ ○ ○                 ○ ○ ○ ○ ○ ○ ○
+       ↓                        ↓
+   few electrons             many electrons
+       ↓                        ↓
+   small signal              large signal
+
+So at this point we haven't created an image file.
+
+We have millions of tiny electrical measurements.
+
+5. The sensor measures color
+
+There's another important complication.
+
+A typical silicon photosite doesn't inherently tell you:
+
+"I received 37% red, 42% green, and 21% blue."
+
+It primarily measures the amount of light reaching it.
+
+To obtain color, many cameras put a color filter array over the sensor.
+
+The most common arrangement is the Bayer pattern:
+
+G R G R
+B G B G
+G R G R
+B G B G
+
+Each photosite measures predominantly one color.
+
+So one location might measure red, another green, another blue.
+
+This means the RAW sensor data isn't normally an RGB image yet.
+
+It's more like:
+
+R G G R G B G R ...
+G B R G B G R G ...
+
+with each position containing a measured sensor value.
+
+6. The analog electrical signal is read out
+
+The sensor now has millions of analog electrical signals.
+
+These signals have to be read from the sensor.
+
+There can also be things like:
+
+amplification
+exposure/gain adjustments
+black-level offsets
+noise
+
+At this point we're still dealing with analog electrical quantities.
+
+7. The ADC converts the analog signal into numbers
+
+Now comes the Analog-to-Digital Converter (ADC).
+
+This is where your earlier question about 12-bit DN becomes important.
+
+Suppose the ADC is 12-bit.
+
+It can represent:
+
+$$ 2^{12}=4096 $$
+
+different values:
+
+$$ 0,\ldots,4095 $$
+
+So the analog sensor signal gets quantized into a number.
+
+For example:
+
+small signal  → DN = 217
+medium signal → DN = 1832
+large signal  → DN = 3901
+
+These are digital numbers (DNs).
+
+Now we finally have digital data.
+
+8. We now have RAW sensor data
+
+At this point, imagine the camera produces something conceptually like:
+
+Pixel       Measurement
+------------------------
+(0,0)       1832
+(1,0)        924
+(2,0)       2103
+(3,0)        451
+...
+
+These numbers correspond to sensor measurements.
+
+This is approximately what RAW data represents.
+
+Notice that we still don't have the normal RGB image you see on your computer.
+
+We have:
+
+$$ \boxed{\text{sensor measurements}} $$
+9. Image processing turns RAW measurements into an image
+
+Now the camera or computer performs a series of processing steps.
+
+A simplified pipeline is:
+
+RAW
+ ↓
+black-level correction
+ ↓
+noise / sensor corrections
+ ↓
+white balance
+ ↓
+demosaicing
+ ↓
+color correction
+ ↓
+tone mapping
+ ↓
+gamma / transfer function
+ ↓
+RGB image
+
+Let's unpack the important ones.
+
+10. Demosaicing reconstructs RGB
+
+Remember:
+
+G R G R
+B G B G
+G R G R
+B G B G
+
+Each photosite only measured one color.
+
+But we want every final pixel to have:
+
+$$ (R,G,B) $$
+
+So the software estimates the missing color components using neighboring measurements.
+
+For example:
+
+RAW:
+
+     R
+   G   G
+     B
+
+       ↓ demosaicing
+
+RGB pixel:
+
+(R, G, B)
+
+There are many sophisticated demosaicing algorithms.
+
+This is one reason a RAW image isn't simply "three channels of 12-bit RGB."
+
+11. White balance adjusts the colors
+
+Different light sources have different color temperatures.
+
+For example:
+
+sunlight
+fluorescent lighting
+incandescent lighting
+
+The camera needs to compensate so that something that is physically white appears white.
+
+Conceptually:
+
+$$ R' = aR $$ $$ G' = bG $$ $$ B' = cB $$
+
+where the gains \(a,b,c\) compensate for the illumination.
+
+12. Color correction maps sensor colors to a standard color space
+
+The camera's sensor doesn't necessarily have exactly the same color response as the RGB color space used for displaying images.
+
+So the camera applies a color transformation.
+
+Conceptually:
+
+$$ \begin{bmatrix} R'\\ G'\\ B' \end{bmatrix} = M \begin{bmatrix} R\\ G\\ B \end{bmatrix} $$
+
+where \(M\) is some color correction matrix.
+
+Eventually the image can be represented in a standard color space such as sRGB.
+
+13. The image gets mapped to an 8-bit representation
+
+Now we're getting close to what your computer normally works with.
+
+A typical display-oriented image may have:
+
+$$ R,G,B \in [0,255] $$
+
+So each pixel is:
+
+Pixel (100,200):
+
+R = 237
+G = 181
+B = 92
+
+That means the pixel is approximately an orange/yellow color.
+
+Your image is now essentially:
+
+$$ I(u,v) = (R,G,B) $$
+
+where:
+
+\(u,v\) = pixel location
+\(R,G,B\) = color values
+14. The image may be compressed
+
+If you're saving a JPEG:
+
+RGB image
+    ↓
+JPEG compression
+    ↓
+JPEG file
+
+JPEG is lossy, meaning some information is deliberately discarded to make the file smaller.
+
+RAW generally preserves much more of the original sensor information.
+
+That's why:
+
+RAW
+ ↓
+more sensor information
+ ↓
+larger file
+
+while:
+
+JPEG
+ ↓
+processed + compressed
+ ↓
+smaller file
+15. Your computer reads the image file
+
+Suppose you open a JPEG.
+
+Your operating system/application decodes the JPEG back into pixel values:
+
+Pixel 0: (124, 82, 51)
+Pixel 1: (127, 84, 53)
+Pixel 2: (131, 87, 54)
+...
+
+Now you have an RGB image in memory.
+
+16. The GPU sends the pixels to the display
+
+This is the final part people often forget.
+
+Your CPU/GPU doesn't literally send "photons" from the image file to the monitor.
+
+The GPU takes the RGB values and generates an electronic signal for the display.
+
+For example:
+
+Image memory
+     ↓
+    GPU
+     ↓
+display signal
+     ↓
+monitor pixels
+17. The monitor converts electrical signals back into light
+
+Each display pixel contains subpixels.
+
+For a conventional RGB display:
+
+┌─────────────────────┐
+│  RED │ GREEN │ BLUE │
+└─────────────────────┘
+
+The monitor controls the intensity of each subpixel.
+
+For example:
+
+R = 255
+G = 100
+B = 20
+
+means:
+
+RED   → very bright
+GREEN → moderately bright
+BLUE  → low
+
+The subpixels emit light.
+
+Those photons enter your eyes.
+
+Your visual system then interprets that light as a color and brightness.
+
+The entire pipeline
+
+So the complete journey is:
+
+                 PHYSICAL WORLD
+                       │
+                       ▼
+                  Light photons
+                       │
+                       ▼
+              ┌─────────────────┐
+              │ Camera lens     │
+              │ focuses rays    │
+              └─────────────────┘
+                       │
+                       ▼
+                 Image sensor
+                       │
+             photons → electrons
+                       │
+                       ▼
+                Analog signal
+                       │
+                       ▼
+                    ADC
+                       │
+                       ▼
+                Digital numbers
+                  (12/14 bit)
+                       │
+                       ▼
+                     RAW
+                       │
+          ┌────────────┴────────────┐
+          │                         │
+          ▼                         ▼
+   black-level/etc.          sensor corrections
+          │
+          ▼
+      demosaicing
+          │
+          ▼
+     white balance
+          │
+          ▼
+    color correction
+          │
+          ▼
+    tone/gamma mapping
+          │
+          ▼
+       RGB image
+       (often 8-bit)
+          │
+          ▼
+    JPEG/PNG/etc.
+          │
+          ▼
+      Computer
+          │
+          ▼
+         GPU
+          │
+          ▼
+       Display
+          │
+          ▼
+     RGB subpixels
+          │
+          ▼
+       LIGHT
+          │
+          ▼
+        Your eye
+
+And this connects directly to the camera model you've been studying:
+
+$$ \boxed{\text{3D world}} \rightarrow \boxed{\text{optics}} \rightarrow \boxed{\text{2D sensor location}} \rightarrow \boxed{\text{pixel measurement}} $$
+
+The camera model primarily describes the geometric part, such as how a 3D point ends up at pixel \((u,v)\). The sensor/electronics pipeline describes how much light at that location ultimately becomes the DN/RGB value.
+
+That's the fundamental distinction:
+
+$$ \boxed{\text{Geometry answers "where?"}} $$ $$ \boxed{\text{Photometry answers "how much light?"}} $$
+
+And a digital image needs both.

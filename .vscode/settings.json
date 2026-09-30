@@ -1,0 +1,37 @@
+{
+    // Rebuild whenever a .tex/.sty file is saved
+    "latex-workshop.latex.autoBuild.run": "onSave",
+    // "latex-workshop.latex.autoBuild.interval": 1000,
+
+    // latexmk picks up .latexmkrc (aux files -> build/, PDF next to the source)
+    "latex-workshop.latex.recipes": [
+        {
+            "name": "latexmk (pdf)",
+            "tools": ["latexmk"]
+        }
+    ],
+    "latex-workshop.latex.tools": [
+        {
+            "name": "latexmk",
+            "command": "latexmk",
+            "args": [
+                "-synctex=1",
+                "-interaction=nonstopmode",
+                "-file-line-error",
+                "-pdf",
+                "%DOC%"
+            ],
+            "env": {}
+        }
+    ],
+    "latex-workshop.latex.recipe.default": "first",
+    "latex-workshop.latex.outDir": "%DIR%",
+
+    // Don't wipe build/ on errors; latexmk handles incremental builds
+    "latex-workshop.latex.autoClean.run": "never",
+
+    // Show the PDF in a VS Code tab and refresh it after each build
+    "latex-workshop.view.pdf.viewer": "tab",
+    "latex-workshop.view.autoFocus.enabled": false,
+    "latex-workshop.synctex.afterBuild.enabled": true
+}
